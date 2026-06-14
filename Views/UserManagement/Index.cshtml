@@ -1,0 +1,236 @@
+﻿@model List<UserManagementApp.Models.User>
+@{
+    ViewData["Title"] = "User Management";
+}
+
+<div class="mb-3">
+    @Html.AntiForgeryToken()  <!-- Required for AJAX toolbar actions -->
+    <div id="toolbar" class="d-flex gap-2">
+        <button id="btnBlock" class="btn btn-warning" disabled title="Block selected users">Block</button>
+        <button id="btnUnblock" class="btn btn-outline-success" disabled title="Unblock selected users">
+            <i class="bi bi-unlock-fill"></i>
+        </button>
+        <button id="btnDelete" class="btn btn-outline-danger" disabled title="Delete selected users">
+            <i class="bi bi-trash-fill"></i>
+        </button>
+        <button id="btnDeleteUnverified" class="btn btn-outline-dark" title="Delete all unverified users">
+            <i class="bi bi-person-x-fill"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Status message -->
+<div id="statusMessage" class="alert d-none" role="alert"></div>
+
+<div class="table-responsive">
+    <table id="usersTable" class="table table-bordered table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <!-- Checkbox header (no label) -->
+                <th style="width: 40px;"><input type="checkbox" id="selectAll" title="Select/Deselect all"></th>
+                <!-- Block indicator column (optional) -->
+                <th style="width: 40px;">Block</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Last seen</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in Model)
+            {
+                <!-- Determine block icon (if blocked) -->
+                string blockIcon = user.Status == UserManagementApp.Models.UserStatus.Blocked
+                ? "<i class='bi bi-lock-fill text-danger' title='Blocked'></i>"
+                : "";
+
+                string statusBadge = user.Status switch
+                {
+                    UserManagementApp.Models.UserStatus.Active => "badge bg-success",
+                    UserManagementApp.Models.UserStatus.Blocked => "badge bg-danger",
+                    UserManagementApp.Models.UserStatus.Unverified => "badge bg-warning text-dark",
+                    _ => "badge bg-secondary"
+                };
+
+                <tr>
+                    <td>
+                        <input type="checkbox" class="user-checkbox" value="@user.Id" title="Select user">
+                    </td>
+                    <td class="text-center">@Html.Raw(blockIcon)</td>
+                    <td>
+                        <strong>@user.Name</strong><br />
+                        <small class="text-muted">@user.JobTitle, @user.Company</small>
+                    </td>
+                    <td>@user.Email</td>
+                    <td><span class="@statusBadge">@user.Status</span></td>
+                    <td>@GetRelativeTime(user.LastLoginTime)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        // --- Helper: relative time formatter (kept in JS for live updates, but we also have C# version) ---
+        // We'll use the C# version for rendering, the JS one for potential future refresh.
+
+        // --- State management for toolbar ---
+        function showStatus(message, isSuccess) {
+            const msg = $('#statusMessage');
+            msg.removeClass('d-none alert-success alert-danger');
+            msg.addClass(isSuccess ? 'alert-success' : 'alert-danger');
+            msg.text(message);
+            setTimeout(() => msg.addClass('d-none'), 3000);
+        }
+
+        function getSelectedIds() {
+            return $('.user-checkbox:checked').map(function () { return $(this).val(); }).get().map(Number);
+        }
+
+        function updateToolbarState() {
+            const selectedCount = getSelectedIds().length;
+            $('#btnBlock').prop('disabled', selectedCount === 0);
+            $('#btnUnblock').prop('disabled', selectedCount === 0);
+            $('#btnDelete').prop('disabled', selectedCount === 0);
+        }
+
+        function performAction(url, ids = null) {
+            $.ajax({
+                type: 'POST',
+                url: url,
+                contentType: 'application/json',
+                data: JSON.stringify(ids),
+                headers: { "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val() },
+                success: function (response) {
+                    if (response.success) {
+                        showStatus(response.message, true);
+                        setTimeout(() => location.reload(), 500);
+                    } else {
+                        showStatus(response.message, false);
+                    }
+                },
+                error: function () {
+                    showStatus("An error occurred. Please try again.", false);
+                }
+            });
+        }
+
+        $(document).ready(function () {
+            // Initialize DataTables with Bootstrap 5 styling and disable sorting on checkbox columns
+            const table = $('#usersTable').DataTable({
+                paging: true,
+                searching: true,
+                ordering: true,
+                info: true,
+                columnDefs: [
+                    { orderable: false, targets: [0, 1] } // disable sorting on checkbox and block columns
+                ],
+                language: {
+                    search: "Search:",
+                    lengthMenu: "Show _MENU_ entries",
+                    info: "Showing _START_ to _END_ of _TOTAL_ users"
+                }
+            });
+
+            // Select all checkbox (works even after DataTables pagination)
+            $('#selectAll').on('click', function () {
+                const isChecked = this.checked;
+                // Only check visible checkboxes on the current page (DataTables)
+                const checkboxes = table.$('.user-checkbox');
+                checkboxes.prop('checked', isChecked);
+                updateToolbarState();
+            });
+
+            // Listen for checkbox changes on each page
+            $('#usersTable tbody').on('change', '.user-checkbox', function () {
+                // If any checkbox is unchecked, deselect header
+                if (!this.checked) $('#selectAll').prop('checked', false);
+                // If all visible checkboxes are checked, check header
+                if (table.$('.user-checkbox:checked').length === table.$('.user-checkbox').length) {
+                    $('#selectAll').prop('checked', true);
+                }
+                updateToolbarState();
+            });
+
+            // Toolbar button handlers
+            $('#btnBlock').on('click', function () {
+                const ids = getSelectedIds();
+                if (ids.length === 0) return;
+                if (!confirm('Block selected user(s)?')) return;
+                performAction('/UserManagement/Block', ids);
+            });
+
+            $('#btnUnblock').on('click', function () {
+                const ids = getSelectedIds();
+                if (ids.length === 0) return;
+                performAction('/UserManagement/Unblock', ids);
+            });
+
+            $('#btnDelete').on('click', function () {
+                const ids = getSelectedIds();
+                if (ids.length === 0) return;
+                if (!confirm('Permanently delete selected user(s)? This action cannot be undone.')) return;
+                performAction('/UserManagement/Delete', ids);
+            });
+
+            $('#btnDeleteUnverified').on('click', function () {
+                if (!confirm('Delete all unverified users?')) return;
+                $.ajax({
+                    type: 'POST',
+                    url: '/UserManagement/DeleteUnverified',
+                    headers: { "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val() },
+                    success: function (response) {
+                        if (response.success) {
+                            showStatus(response.message, true);
+                            setTimeout(() => location.reload(), 500);
+                        } else {
+                            showStatus(response.message, false);
+                        }
+                    },
+                    error: () => showStatus("Error deleting unverified users.", false)
+                });
+            });
+
+            // Initial toolbar state
+            updateToolbarState();
+        });
+    </script>
+}
+
+@functions {
+    public static string GetRelativeTime(DateTime? dateTime)
+    {
+        if (dateTime == null) return "Never";
+
+        var now = DateTime.UtcNow;
+        var diff = now - dateTime.Value;
+
+        if (diff.TotalSeconds < 0) diff = TimeSpan.Zero;
+
+        if (diff.TotalSeconds < 60)
+            return "less than a minute ago";
+        if (diff.TotalMinutes < 60)
+        {
+            int mins = (int)diff.TotalMinutes;
+            return mins == 1 ? "1 minute ago" : $"{mins} minutes ago";
+        }
+        if (diff.TotalHours < 24)
+        {
+            int hours = (int)diff.TotalHours;
+            return hours == 1 ? "1 hour ago" : $"{hours} hours ago";
+        }
+        if (diff.TotalDays < 30)
+        {
+            int days = (int)diff.TotalDays;
+            return days == 1 ? "yesterday" : $"{days} days ago";
+        }
+        if (diff.TotalDays < 365)
+        {
+            int weeks = (int)(diff.TotalDays / 7);
+            return weeks == 1 ? "1 week ago" : $"{weeks} weeks ago";
+        }
+        int years = (int)(diff.TotalDays / 365);
+        return years == 1 ? "1 year ago" : $"{years} years ago";
+    }
+}
