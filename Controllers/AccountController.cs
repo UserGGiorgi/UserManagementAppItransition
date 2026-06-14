@@ -94,7 +94,9 @@ namespace UserManagementApp.Controllers
                 PasswordHash = HashPassword(model.Password),
                 Status = UserStatus.Unverified,
                 RegistrationTime = DateTime.UtcNow,
-                LastLoginTime = null
+                LastLoginTime = null,
+                JobTitle = model.JobTitle,
+                Company = model.Company
             };
 
             try

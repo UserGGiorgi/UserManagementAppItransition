@@ -72,10 +72,7 @@
 
 @section Scripts {
     <script>
-        // --- Helper: relative time formatter (kept in JS for live updates, but we also have C# version) ---
-        // We'll use the C# version for rendering, the JS one for potential future refresh.
 
-        // --- State management for toolbar ---
         function showStatus(message, isSuccess) {
             const msg = $('#statusMessage');
             msg.removeClass('d-none alert-success alert-danger');
@@ -117,14 +114,13 @@
         }
 
         $(document).ready(function () {
-            // Initialize DataTables with Bootstrap 5 styling and disable sorting on checkbox columns
             const table = $('#usersTable').DataTable({
                 paging: true,
                 searching: true,
                 ordering: true,
                 info: true,
                 columnDefs: [
-                    { orderable: false, targets: [0, 1] } // disable sorting on checkbox and block columns
+                    { orderable: false, targets: [0, 1] } 
                 ],
                 language: {
                     search: "Search:",
@@ -133,27 +129,21 @@
                 }
             });
 
-            // Select all checkbox (works even after DataTables pagination)
             $('#selectAll').on('click', function () {
                 const isChecked = this.checked;
-                // Only check visible checkboxes on the current page (DataTables)
                 const checkboxes = table.$('.user-checkbox');
                 checkboxes.prop('checked', isChecked);
                 updateToolbarState();
             });
 
-            // Listen for checkbox changes on each page
             $('#usersTable tbody').on('change', '.user-checkbox', function () {
-                // If any checkbox is unchecked, deselect header
                 if (!this.checked) $('#selectAll').prop('checked', false);
-                // If all visible checkboxes are checked, check header
                 if (table.$('.user-checkbox:checked').length === table.$('.user-checkbox').length) {
                     $('#selectAll').prop('checked', true);
                 }
                 updateToolbarState();
             });
 
-            // Toolbar button handlers
             $('#btnBlock').on('click', function () {
                 const ids = getSelectedIds();
                 if (ids.length === 0) return;

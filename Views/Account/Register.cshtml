@@ -44,6 +44,17 @@
                     <input asp-for="ConfirmPassword" class="form-control" />
                     <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
                 </div>
+                <div class="mb-3">
+                    <label asp-for="JobTitle" class="form-label"></label>
+                    <input asp-for="JobTitle" class="form-control" placeholder="e.g. Software Engineer" />
+                    <span asp-validation-for="JobTitle" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Company" class="form-label"></label>
+                    <input asp-for="Company" class="form-control" placeholder="e.g. Acme Corp" />
+                    <span asp-validation-for="Company" class="text-danger"></span>
+                </div>
 
                 <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-success">Register</button>

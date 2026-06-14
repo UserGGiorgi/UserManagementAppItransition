@@ -24,6 +24,14 @@ namespace UserManagementApp.Models
         [DataType(DataType.Password)]
         [Compare("Password", ErrorMessage = "Passwords do not match.")]
         [Display(Name = "Confirm Password")]
+
         public string ConfirmPassword { get; set; } = string.Empty;
+        [Display(Name = "Job Title")]
+        [StringLength(100)]
+        public string? JobTitle { get; set; }
+
+        [Display(Name = "Company")]
+        [StringLength(100)]
+        public string? Company { get; set; }
     }
 }
