@@ -114,15 +114,24 @@ namespace UserManagementApp.Controllers
             {
                 try
                 {
+                    if (string.IsNullOrEmpty(user.Email))
+                    {
+                        Console.WriteLine("Email sending skipped: user.Email is null or empty.");
+                        return;
+                    }
+
                     string token = Guid.NewGuid().ToString();
                     string confirmationLink = Url.Action("VerifyEmail", "Account",
                         new { email = user.Email, token }, Request.Scheme)!;
                     string body = $"<p>Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.</p>";
-                    await _emailService.SendEmailAsync(user.Email, "Confirm your email", body);
 
+                    Console.WriteLine("Attempting to send email to: " + user.Email);
+                    await _emailService.SendEmailAsync(user.Email, "Confirm your email", body);
+                    Console.WriteLine("Email sent successfully.");
                 }
                 catch (Exception ex)
                 {
+                    Console.WriteLine("Email sending failed: " + ex.ToString());
                 }
             });
 
@@ -166,6 +175,18 @@ namespace UserManagementApp.Controllers
         private static bool VerifyPassword(string password, string hash)
         {
             return HashPassword(password) == hash;
+        }
+        public async Task<IActionResult> TestEmail()
+        {
+            try
+            {
+                await _emailService.SendEmailAsync("test@example.com", "Test", "Hello from Ethereal");
+                return Content("Email sent successfully!");
+            }
+            catch (Exception ex)
+            {
+                return Content("Error: " + ex.ToString());
+            }
         }
     }
 }
