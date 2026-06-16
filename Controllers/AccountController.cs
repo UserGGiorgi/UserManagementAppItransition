@@ -13,15 +13,17 @@ namespace UserManagementApp.Controllers
 {
     public class AccountController : Controller
     {
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly AppDbContext _db;
         private readonly IEmailService _emailService;
         private readonly IConfiguration _config;
 
-        public AccountController(AppDbContext db, IEmailService emailService, IConfiguration config)
+        public AccountController(AppDbContext db, IEmailService emailService, IConfiguration config, IServiceScopeFactory scopeFactory)
         {
             _db = db;
             _emailService = emailService;
             _config = config;
+            _scopeFactory = scopeFactory;
         }
 
         [AllowAnonymous]
@@ -114,24 +116,22 @@ namespace UserManagementApp.Controllers
             {
                 try
                 {
+                    using var scope = _scopeFactory.CreateScope();
+                    var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>();
+
                     if (string.IsNullOrEmpty(user.Email))
-                    {
-                        Console.WriteLine("Email sending skipped: user.Email is null or empty.");
                         return;
-                    }
 
                     string token = Guid.NewGuid().ToString();
-                    string confirmationLink = Url.Action("VerifyEmail", "Account",
+                    var confirmationLink = Url.Action("VerifyEmail", "Account",
                         new { email = user.Email, token }, Request.Scheme)!;
                     string body = $"<p>Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.</p>";
 
-                    Console.WriteLine("Attempting to send email to: " + user.Email);
-                    await _emailService.SendEmailAsync(user.Email, "Confirm your email", body);
-                    Console.WriteLine("Email sent successfully.");
+                    await emailService.SendEmailAsync(user.Email, "Confirm your email", body);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("Email sending failed: " + ex.ToString());
+                    Console.WriteLine("Email sending failed: " + ex.Message);
                 }
             });
 

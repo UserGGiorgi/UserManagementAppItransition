@@ -4,7 +4,7 @@
 }
 
 <div class="mb-3">
-    @Html.AntiForgeryToken()  <!-- Required for AJAX toolbar actions -->
+    @Html.AntiForgeryToken() 
     <div id="toolbar" class="d-flex gap-2">
         <button id="btnBlock" class="btn btn-warning" disabled title="Block selected users">Block</button>
         <button id="btnUnblock" class="btn btn-outline-success" disabled title="Unblock selected users">
@@ -19,16 +19,13 @@
     </div>
 </div>
 
-<!-- Status message -->
 <div id="statusMessage" class="alert d-none" role="alert"></div>
 
 <div class="table-responsive">
     <table id="usersTable" class="table table-bordered table-hover align-middle">
         <thead class="table-light">
             <tr>
-                <!-- Checkbox header (no label) -->
                 <th style="width: 40px;"><input type="checkbox" id="selectAll" title="Select/Deselect all"></th>
-                <!-- Block indicator column (optional) -->
                 <th style="width: 40px;">Block</th>
                 <th>Name</th>
                 <th>Email</th>
@@ -39,7 +36,6 @@
         <tbody>
             @foreach (var user in Model)
             {
-                <!-- Determine block icon (if blocked) -->
                 string blockIcon = user.Status == UserManagementApp.Models.UserStatus.Blocked
                 ? "<i class='bi bi-lock-fill text-danger' title='Blocked'></i>"
                 : "";
@@ -72,7 +68,6 @@
 
 @section Scripts {
     <script>
-
         function showStatus(message, isSuccess) {
             const msg = $('#statusMessage');
             msg.removeClass('d-none alert-success alert-danger');
@@ -107,8 +102,14 @@
                         showStatus(response.message, false);
                     }
                 },
-                error: function () {
-                    showStatus("An error occurred. Please try again.", false);
+                error: function (xhr) {
+                    var msg = "An error occurred. Please try again.";
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        msg = xhr.responseJSON.message;
+                    } else if (xhr.statusText) {
+                        msg = "Error: " + xhr.statusText;
+                    }
+                    showStatus(msg, false);
                 }
             });
         }
@@ -120,7 +121,7 @@
                 ordering: true,
                 info: true,
                 columnDefs: [
-                    { orderable: false, targets: [0, 1] } 
+                    { orderable: false, targets: [0, 1] }
                 ],
                 language: {
                     search: "Search:",
@@ -178,16 +179,22 @@
                             showStatus(response.message, false);
                         }
                     },
-                    error: () => showStatus("Error deleting unverified users.", false)
+                    error: function (xhr) {
+                        var msg = "Error deleting unverified users.";
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            msg = xhr.responseJSON.message;
+                        } else if (xhr.statusText) {
+                            msg = "Error: " + xhr.statusText;
+                        }
+                        showStatus(msg, false);
+                    }
                 });
             });
 
-            // Initial toolbar state
             updateToolbarState();
         });
     </script>
 }
-
 @functions {
     public static string GetRelativeTime(DateTime? dateTime)
     {

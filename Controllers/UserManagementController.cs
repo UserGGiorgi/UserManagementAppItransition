@@ -46,20 +46,32 @@ namespace UserManagementApp.Controllers
         [HttpPost]
         public async Task<IActionResult> Block([FromBody] List<int> ids)
         {
-            if (ids == null || !ids.Any()) return Json(new { success = false, message = "No users selected." });
-
-            var users = await _db.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
-            foreach (var user in users)
+            try
             {
-                user.Status = UserStatus.Blocked;
+                if (ids == null || !ids.Any())
+                    return Json(new { success = false, message = "No users selected." });
+
+                var users = await _db.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
+                if (!users.Any())
+                    return Json(new { success = false, message = "No matching users found." });
+
+                foreach (var user in users)
+                {
+                    user.Status = UserStatus.Blocked;
+                }
+                await _db.SaveChangesAsync();
+
+                var currentId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+                if (ids.Contains(currentId))
+                    await HttpContext.SignOutAsync();
+
+                return Json(new { success = true, message = $"{users.Count} user(s) blocked." });
             }
-            await _db.SaveChangesAsync();
-
-            var currentId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            if (ids.Contains(currentId))
-                await HttpContext.SignOutAsync();
-
-            return Json(new { success = true, message = $"{users.Count} user(s) blocked." });
+            catch (Exception ex)
+            {
+                Console.WriteLine("Block action failed: " + ex.ToString());
+                return Json(new { success = false, message = $"Block failed: {ex.Message}" });
+            }
         }
 
         [HttpPost]
@@ -95,13 +107,21 @@ namespace UserManagementApp.Controllers
         [HttpPost]
         public async Task<IActionResult> DeleteUnverified()
         {
-            var unverifiedUsers = await _db.Users.Where(u => u.Status == UserStatus.Unverified).ToListAsync();
-            if (!unverifiedUsers.Any())
-                return Json(new { success = true, message = "No unverified users to delete." });
+            try
+            {
+                var unverifiedUsers = await _db.Users.Where(u => u.Status == UserStatus.Unverified).ToListAsync();
+                if (!unverifiedUsers.Any())
+                    return Json(new { success = true, message = "No unverified users to delete." });
 
-            _db.Users.RemoveRange(unverifiedUsers);
-            await _db.SaveChangesAsync();
-            return Json(new { success = true, message = $"{unverifiedUsers.Count} unverified user(s) deleted." });
+                _db.Users.RemoveRange(unverifiedUsers);
+                await _db.SaveChangesAsync();
+                return Json(new { success = true, message = $"{unverifiedUsers.Count} unverified user(s) deleted." });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("DeleteUnverified failed: " + ex.ToString());
+                return Json(new { success = false, message = $"Delete failed: {ex.Message}" });
+            }
         }
     }
 }
