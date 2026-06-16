@@ -13,12 +13,13 @@ namespace UserManagementApp.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly IServiceScopeFactory _scopeFactory;
         private readonly AppDbContext _db;
         private readonly IEmailService _emailService;
         private readonly IConfiguration _config;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-        public AccountController(AppDbContext db, IEmailService emailService, IConfiguration config, IServiceScopeFactory scopeFactory)
+        public AccountController(AppDbContext db, IEmailService emailService, IConfiguration config,
+            IServiceScopeFactory scopeFactory)
         {
             _db = db;
             _emailService = emailService;
@@ -106,8 +107,8 @@ namespace UserManagementApp.Controllers
                 _db.Users.Add(user);
                 await _db.SaveChangesAsync();
             }
-            catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_Users_Email_Unique") == true)
-            { 
+            catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+            {
                 ModelState.AddModelError("Email", "This email is already registered.");
                 return View(model);
             }
@@ -123,7 +124,7 @@ namespace UserManagementApp.Controllers
                         return;
 
                     string token = Guid.NewGuid().ToString();
-                    var confirmationLink = Url.Action("VerifyEmail", "Account",
+                    string confirmationLink = Url.Action("VerifyEmail", "Account",
                         new { email = user.Email, token }, Request.Scheme)!;
                     string body = $"<p>Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.</p>";
 
@@ -176,17 +177,19 @@ namespace UserManagementApp.Controllers
         {
             return HashPassword(password) == hash;
         }
-        public async Task<IActionResult> TestEmail()
+
+        private static bool IsUniqueConstraintViolation(DbUpdateException ex)
         {
-            try
-            {
-                await _emailService.SendEmailAsync("test@example.com", "Test", "Hello from Ethereal");
-                return Content("Email sent successfully!");
-            }
-            catch (Exception ex)
-            {
-                return Content("Error: " + ex.ToString());
-            }
+            if (ex.InnerException is Microsoft.Data.Sqlite.SqliteException sqliteEx && sqliteEx.SqliteErrorCode == 19)
+                return true;
+
+            if (ex.InnerException?.Message.Contains("IX_Users_Email_Unique") == true)
+                return true;
+
+            if (ex.InnerException?.Message.Contains("UNIQUE constraint failed") == true)
+                return true;
+
+            return false;
         }
     }
 }

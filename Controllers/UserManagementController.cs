@@ -39,7 +39,6 @@ namespace UserManagementApp.Controllers
             var users = await _db.Users
                 .OrderByDescending(u => u.LastLoginTime ?? DateTime.MinValue)
                 .ToListAsync();
-
             return View(users);
         }
 
@@ -52,12 +51,9 @@ namespace UserManagementApp.Controllers
                     return Json(new { success = false, message = "No users selected." });
 
                 var users = await _db.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
-                if (!users.Any())
-                    return Json(new { success = false, message = "No matching users found." });
-
-                foreach (var user in users)
+                foreach (var u in users)
                 {
-                    user.Status = UserStatus.Blocked;
+                    u.Status = UserStatus.Blocked;
                 }
                 await _db.SaveChangesAsync();
 
@@ -69,7 +65,7 @@ namespace UserManagementApp.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Block action failed: " + ex.ToString());
+                Console.WriteLine(ex);
                 return Json(new { success = false, message = $"Block failed: {ex.Message}" });
             }
         }
@@ -77,31 +73,49 @@ namespace UserManagementApp.Controllers
         [HttpPost]
         public async Task<IActionResult> Unblock([FromBody] List<int> ids)
         {
-            if (ids == null || !ids.Any()) return Json(new { success = false, message = "No users selected." });
-
-            var users = await _db.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
-            foreach (var user in users)
+            try
             {
-                user.Status = UserStatus.Active;
+                if (ids == null || !ids.Any())
+                    return Json(new { success = false, message = "No users selected." });
+
+                var users = await _db.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
+                foreach (var u in users)
+                {
+                    u.Status = UserStatus.Active;
+                }
+                await _db.SaveChangesAsync();
+                return Json(new { success = true, message = $"{users.Count} user(s) unblocked." });
             }
-            await _db.SaveChangesAsync();
-            return Json(new { success = true, message = $"{users.Count} user(s) unblocked." });
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return Json(new { success = false, message = $"Unblock failed: {ex.Message}" });
+            }
         }
 
         [HttpPost]
         public async Task<IActionResult> Delete([FromBody] List<int> ids)
         {
-            if (ids == null || !ids.Any()) return Json(new { success = false, message = "No users selected." });
+            try
+            {
+                if (ids == null || !ids.Any())
+                    return Json(new { success = false, message = "No users selected." });
 
-            var users = await _db.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
-            _db.Users.RemoveRange(users); 
-            await _db.SaveChangesAsync();
+                var users = await _db.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
+                _db.Users.RemoveRange(users);
+                await _db.SaveChangesAsync();
 
-            var currentId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            if (ids.Contains(currentId))
-                await HttpContext.SignOutAsync();
+                var currentId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+                if (ids.Contains(currentId))
+                    await HttpContext.SignOutAsync();
 
-            return Json(new { success = true, message = $"{users.Count} user(s) deleted." });
+                return Json(new { success = true, message = $"{users.Count} user(s) deleted." });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return Json(new { success = false, message = $"Delete failed: {ex.Message}" });
+            }
         }
 
         [HttpPost]
@@ -119,8 +133,8 @@ namespace UserManagementApp.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("DeleteUnverified failed: " + ex.ToString());
-                return Json(new { success = false, message = $"Delete failed: {ex.Message}" });
+                Console.WriteLine(ex);
+                return Json(new { success = false, message = $"Delete unverified failed: {ex.Message}" });
             }
         }
     }

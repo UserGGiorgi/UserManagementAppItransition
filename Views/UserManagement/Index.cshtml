@@ -4,7 +4,7 @@
 }
 
 <div class="mb-3">
-    @Html.AntiForgeryToken() 
+    @Html.AntiForgeryToken()
     <div id="toolbar" class="d-flex gap-2">
         <button id="btnBlock" class="btn btn-warning" disabled title="Block selected users">Block</button>
         <button id="btnUnblock" class="btn btn-outline-success" disabled title="Unblock selected users">
@@ -195,6 +195,7 @@
         });
     </script>
 }
+
 @functions {
     public static string GetRelativeTime(DateTime? dateTime)
     {
